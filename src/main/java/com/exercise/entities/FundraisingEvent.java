@@ -8,12 +8,18 @@ import lombok.*;
 import java.math.BigDecimal;
 
 @Entity
+@Table(
+        name = "fundraising_event",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uc_event_name_currency",
+                columnNames = {"name", "currency"}
+        )
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class FundraisingEvent {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

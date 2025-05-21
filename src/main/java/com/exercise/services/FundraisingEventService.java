@@ -6,8 +6,10 @@ import com.exercise.dto.FundraisingEventResponse;
 import com.exercise.entities.FundraisingEvent;
 import com.exercise.repositories.FundraisingEventRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -22,6 +24,15 @@ public class FundraisingEventService {
 
 
     public FundraisingEventResponse createEvent(CreateFundraisingEventRequest request) {
+        if (eventRepository.existsByNameAndCurrency(request.getName(), request.getCurrency())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Event with name '" + request.getName() +
+                            "' and currency '" + request.getCurrency() +
+                            "' already exists"
+            );
+        }
+
         FundraisingEvent entity = FundraisingEvent.builder()
                 .name(request.getName())
                 .currency(request.getCurrency())
