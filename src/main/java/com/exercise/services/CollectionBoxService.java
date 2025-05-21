@@ -3,16 +3,19 @@ package com.exercise.services;
 import com.exercise.dto.AddMoneyRequest;
 import com.exercise.dto.AssignBoxRequest;
 import com.exercise.dto.CollectionBoxResponse;
+import com.exercise.dto.FundraisingEventResponse;
 import com.exercise.entities.CollectionBox;
 import com.exercise.entities.FundraisingEvent;
 import com.exercise.repositories.CollectionBoxRepository;
 import com.exercise.repositories.FundraisingEventRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.exercise.model.Currency;
 
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -80,12 +83,57 @@ public class CollectionBoxService {
         return mapToResponse(box);
     }
 
+    public FundraisingEventResponse transfer(Long boxId) {
+        CollectionBox box = boxRepository.findById(boxId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Box not found"));
+
+        if (!box.isAssigned() || box.getAssignedEvent() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Box is not assigned to any event");
+        }
+
+        FundraisingEvent event = box.getAssignedEvent();
+        Currency target = event.getCurrency();
+
+        Map<Currency, Double> money = box.getMoney();
+
+        Map<Currency, BigDecimal> toEur = Map.of(
+                Currency.EUR, BigDecimal.ONE,
+                Currency.PLN, BigDecimal.valueOf(0.22),   // 1 PLN = 0.22 EUR
+                Currency.GBP, BigDecimal.valueOf(1.17)    // 1 GBP = 1.17 EUR
+        );
+
+        BigDecimal totalEur = money.entrySet().stream()
+                .map(e -> BigDecimal.valueOf(e.getValue()).multiply(toEur.get(e.getKey())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal converted = switch (target) {
+            case EUR -> totalEur;
+            case PLN -> totalEur.multiply(BigDecimal.valueOf(4.5));  // 1 EUR = 4.5 PLN
+            case GBP -> totalEur.multiply(BigDecimal.valueOf(0.85)); // 1 EUR = 0.85 GBP
+            default -> throw new IllegalStateException("Unsupported currency: " + target);
+        };
+
+        event.setAccountBalance(event.getAccountBalance().add(converted));
+
+        box.getMoney().clear();
+        box.setEmpty(true);
+        box.setAssigned(false);
+        box.setAssignedEvent(null);
+
+        return FundraisingEventResponse.builder()
+                .id(event.getId())
+                .name(event.getName())
+                .currency(event.getCurrency())
+                .accountBalance(event.getAccountBalance())
+                .build();
+    }
+
+
     private CollectionBoxResponse mapToResponse(CollectionBox box) {
         return CollectionBoxResponse.builder()
                 .id(box.getId())
                 .assigned(box.isAssigned())
                 .empty(box.isEmpty())
-                .money(Collections.unmodifiableMap(box.getMoney()))
                 .build();
     }
 }

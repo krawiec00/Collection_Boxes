@@ -3,6 +3,7 @@ package com.exercise.controllers;
 import com.exercise.dto.AddMoneyRequest;
 import com.exercise.dto.AssignBoxRequest;
 import com.exercise.dto.CollectionBoxResponse;
+import com.exercise.dto.FundraisingEventResponse;
 import com.exercise.services.CollectionBoxService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -57,5 +58,12 @@ public class CollectionBoxController {
             @Valid @RequestBody AddMoneyRequest request) {
         CollectionBoxResponse response = boxService.addMoney(id, request);
         return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}/transfer")
+    public ResponseEntity<FundraisingEventResponse> transfer(
+            @PathVariable("id") Long id) {
+        FundraisingEventResponse updatedEvent = boxService.transfer(id);
+        return ResponseEntity.ok(updatedEvent);
     }
 }
