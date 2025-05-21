@@ -1,6 +1,7 @@
 package com.exercise.services;
 
 import com.exercise.dto.CreateFundraisingEventRequest;
+import com.exercise.dto.FinancialReportEntry;
 import com.exercise.dto.FundraisingEventResponse;
 import com.exercise.entities.FundraisingEvent;
 import com.exercise.repositories.FundraisingEventRepository;
@@ -44,6 +45,16 @@ public class FundraisingEventService {
                 .currency(event.getCurrency())
                 .accountBalance(event.getAccountBalance())
                 .build();
+    }
+
+    public List<FinancialReportEntry> getFinancialReport() {
+        return eventRepository.findAll().stream()
+                .map(event -> FinancialReportEntry.builder()
+                        .name(event.getName())
+                        .amount(event.getAccountBalance())
+                        .currency(event.getCurrency())
+                        .build())
+                .collect(Collectors.toList());
     }
 }
 

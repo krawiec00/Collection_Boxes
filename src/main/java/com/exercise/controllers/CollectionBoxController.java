@@ -60,6 +60,7 @@ public class CollectionBoxController {
         return ResponseEntity.ok(response);
     }
 
+
     @PutMapping("/{id}/transfer")
     public ResponseEntity<FundraisingEventResponse> transfer(
             @PathVariable("id") Long id) {
