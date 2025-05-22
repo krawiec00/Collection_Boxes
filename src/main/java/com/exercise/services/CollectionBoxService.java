@@ -90,31 +90,41 @@ public class CollectionBoxService {
         if (!box.isAssigned() || box.getAssignedEvent() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Box is not assigned to any event");
         }
-
         FundraisingEvent event = box.getAssignedEvent();
         Currency target = event.getCurrency();
 
-        Map<Currency, Double> money = box.getMoney();
-
-        Map<Currency, BigDecimal> toEur = Map.of(
-                Currency.EUR, BigDecimal.ONE,
-                Currency.PLN, BigDecimal.valueOf(0.22),   // 1 PLN = 0.22 EUR
-                Currency.GBP, BigDecimal.valueOf(1.17)    // 1 GBP = 1.17 EUR
+        // Bezpośrednie kursy między walutami
+        // Key: źródłowa, Value: mapy docelowych kursów
+        Map<Currency, Map<Currency, BigDecimal>> rates = Map.of(
+                Currency.EUR, Map.of(
+                        Currency.EUR, BigDecimal.ONE,
+                        Currency.PLN, BigDecimal.valueOf(4.5),
+                        Currency.GBP, BigDecimal.valueOf(0.85)
+                ),
+                Currency.PLN, Map.of(
+                        Currency.EUR, BigDecimal.valueOf(0.22),
+                        Currency.PLN, BigDecimal.ONE,
+                        Currency.GBP, BigDecimal.valueOf(0.19)  // przykładowo
+                ),
+                Currency.GBP, Map.of(
+                        Currency.EUR, BigDecimal.valueOf(1.17),
+                        Currency.PLN, BigDecimal.valueOf(5.2),
+                        Currency.GBP, BigDecimal.ONE
+                )
         );
 
-        BigDecimal totalEur = money.entrySet().stream()
-                .map(e -> BigDecimal.valueOf(e.getValue()).multiply(toEur.get(e.getKey())))
+        BigDecimal total = box.getMoney().entrySet().stream()
+                .map(e -> {
+                    BigDecimal amount = BigDecimal.valueOf(e.getValue());
+                    BigDecimal rate = rates.get(e.getKey()).get(target);
+                    return amount.multiply(rate);
+                })
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal converted = switch (target) {
-            case EUR -> totalEur;
-            case PLN -> totalEur.multiply(BigDecimal.valueOf(4.5));  // 1 EUR = 4.5 PLN
-            case GBP -> totalEur.multiply(BigDecimal.valueOf(0.85)); // 1 EUR = 0.85 GBP
-            default -> throw new IllegalStateException("Unsupported currency: " + target);
-        };
+        // Aktualizacja salda eventu
+        event.setAccountBalance(event.getAccountBalance().add(total));
 
-        event.setAccountBalance(event.getAccountBalance().add(converted));
-
+        // Opróżnienie puszki
         box.getMoney().clear();
         box.setEmpty(true);
         box.setAssigned(false);
